@@ -3,6 +3,7 @@ const cors = require('cors');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const morgan = require('morgan');
+const helmet = require('helmet');
 
 const authRoutes = require('./routes/auth.routes');
 const profileRoutes = require('./routes/profile.routes');
@@ -13,18 +14,49 @@ const fraudRoutes = require('./routes/fraud.routes');
 const messagingRoutes = require('./routes/messaging.routes');
 const jobRoutes = require('./routes/job.routes');
 const adRoutes = require('./routes/ad.routes');
+
 const errorHandler = require('./middlewares/error.middleware');
 const { apiLimiter, authLimiter } = require('./middlewares/rateLimit.middleware');
-const helmet = require('helmet');
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
 
 const app = express();
+
+/* =====================
+   Global Middlewares
+===================== */
 
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
+
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(xss());
+
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+/* =====================
+   Health Check
+===================== */
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'FoundIn API running'
+  });
+});
+
+/* =====================
+   Rate Limiting
+===================== */
+
+app.use('/api/', apiLimiter);
+app.use('/api/auth/', authLimiter);
+
+/* =====================
+   Routes
+===================== */
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -35,15 +67,11 @@ app.use('/api/fraud', fraudRoutes);
 app.use('/api/messages', messagingRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ads', adRoutes);
-app.use(errorHandler);
-app.use('/api/', apiLimiter);
-app.use('/api/auth/', authLimiter);
-app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
 
-app.get('/', (req, res) => {
-  res.send('FoundIn API running');
-});
+/* =====================
+   Error Handler (LAST)
+===================== */
+
+app.use(errorHandler);
 
 module.exports = app;
