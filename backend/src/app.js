@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const xss = require('xss-clean');
 const morgan = require('morgan');
 const helmet = require('helmet');
 
@@ -24,8 +23,6 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
-
-app.use(xss());
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
