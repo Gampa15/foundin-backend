@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const morgan = require('morgan');
 const helmet = require('helmet');
@@ -25,12 +24,6 @@ app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
-app.use(
-  mongoSanitize({
-    allowDots: true,
-    replaceWith: '_'
-  })
-);
 
 app.use(xss());
 
@@ -63,3 +56,5 @@ app.get('/', (req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
+4
+
