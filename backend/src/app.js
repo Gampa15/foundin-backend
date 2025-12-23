@@ -45,6 +45,10 @@ app.use('/api/messages', messagingRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ads', adRoutes);
 
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.get('/', (req, res) => {
   res.send('FoundIn API running');
 });
