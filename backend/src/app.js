@@ -19,6 +19,7 @@ const { apiLimiter, authLimiter } = require('./middlewares/rateLimit.middleware'
 const app = express();
 
 /* ---------- GLOBAL MIDDLEWARES FIRST ---------- */
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
