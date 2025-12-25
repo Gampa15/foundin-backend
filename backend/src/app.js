@@ -18,20 +18,21 @@ const { apiLimiter, authLimiter } = require('./middlewares/rateLimit.middleware'
 
 const app = express();
 
-/* ---------- GLOBAL MIDDLEWARES FIRST ---------- */
+/* ---------- TRUST PROXY (REQUIRED FOR RENDER) ---------- */
 app.set('trust proxy', 1);
+
+/* ---------- GLOBAL MIDDLEWARES ---------- */
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
-
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
 /* ---------- RATE LIMITERS ---------- */
-app.use('/api/', apiLimiter);
-app.use('/api/auth/', authLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
 
 /* ---------- ROUTES ---------- */
 app.use('/uploads', express.static('uploads'));
@@ -46,6 +47,7 @@ app.use('/api/messages', messagingRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ads', adRoutes);
 
+/* ---------- HEALTH CHECK ---------- */
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -54,9 +56,7 @@ app.get('/', (req, res) => {
   res.send('FoundIn API running');
 });
 
-/* ---------- ERROR HANDLER LAST ---------- */
+/* ---------- ERROR HANDLER (LAST) ---------- */
 app.use(errorHandler);
 
 module.exports = app;
-4
-

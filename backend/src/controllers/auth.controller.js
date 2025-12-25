@@ -1,18 +1,21 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
-
 const User = require('../models/User');
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined');
+}
 
 const generateToken = (userId) => {
   return jwt.sign(
     { id: userId },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
 
-// REGISTER
+/* ================= REGISTER ================= */
 exports.register = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -21,6 +24,11 @@ exports.register = async (req, res) => {
     }
 
     const { email, phone, password, role } = req.body;
+
+    // Prevent public admin creation
+    if (role === 'ADMIN') {
+      return res.status(403).json({ message: 'Admin registration not allowed' });
+    }
 
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }]
@@ -43,7 +51,7 @@ exports.register = async (req, res) => {
 
     const token = generateToken(user._id);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Registration successful',
       token,
       user: {
@@ -54,11 +62,15 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('REGISTER ERROR:', error);
+    return res.status(500).json({
+      message: 'Server error',
+      error: error.message
+    });
   }
 };
 
-// LOGIN
+/* ================= LOGIN ================= */
 exports.login = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -75,14 +87,13 @@ exports.login = async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const token = generateToken(user._id);
 
-    res.json({
+    return res.json({
       message: 'Login successful',
       token,
       user: {
@@ -93,6 +104,10 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('LOGIN ERROR:', error);
+    return res.status(500).json({
+      message: 'Server error',
+      error: error.message
+    });
   }
 };
