@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
+const Profile = require('../models/Profile');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not defined');
@@ -25,11 +26,6 @@ exports.register = async (req, res) => {
 
     const { email, phone, password, role } = req.body;
 
-    // Prevent public admin creation
-    if (role === 'ADMIN') {
-      return res.status(403).json({ message: 'Admin registration not allowed' });
-    }
-
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }]
     });
@@ -42,6 +38,7 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 1️⃣ Create user
     const user = await User.create({
       email,
       phone,
@@ -49,9 +46,18 @@ exports.register = async (req, res) => {
       role
     });
 
+    // 2️⃣ Auto-create profile
+    await Profile.create({
+      user: user._id,
+      fullName: '',
+      bio: '',
+      skills: []
+    });
+
+    // 3️⃣ Generate token
     const token = generateToken(user._id);
 
-    return res.status(201).json({
+    res.status(201).json({
       message: 'Registration successful',
       token,
       user: {
@@ -62,11 +68,8 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('REGISTER ERROR:', error);
-    return res.status(500).json({
-      message: 'Server error',
-      error: error.message
-    });
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
