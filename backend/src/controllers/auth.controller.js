@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, phone, password, role } = req.body;
+    const { name, email, phone, password, role } = req.body;
 
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }]
@@ -40,6 +40,7 @@ exports.register = async (req, res) => {
 
     // 1️⃣ Create user
     const user = await User.create({
+      name,
       email,
       phone,
       password: hashedPassword,
@@ -49,7 +50,7 @@ exports.register = async (req, res) => {
     // 2️⃣ Auto-create profile
     await Profile.create({
       user: user._id,
-      fullName: '',
+      fullName: name || '',
       bio: '',
       skills: []
     });
@@ -59,16 +60,11 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       message: 'Registration successful',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role
-      }
+      token
     });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error('Register error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

@@ -1,13 +1,13 @@
 const Profile = require('../models/Profile');
-const User = require('../models/User');
 
 /**
- * CREATE PROFILE (one-time)
+ * CREATE PROFILE (one-time manual creation)
+ * Usually not needed because profile is auto-created
  */
 exports.createProfile = async (req, res) => {
   try {
-    const existing = await Profile.findOne({ user: req.user.id });
-    if (existing) {
+    const exists = await Profile.findOne({ user: req.user.id });
+    if (exists) {
       return res.status(400).json({ message: 'Profile already exists' });
     }
 
@@ -20,43 +20,58 @@ exports.createProfile = async (req, res) => {
 
     res.status(201).json(profile);
   } catch (err) {
-    console.error(err);
+    console.error('Create profile error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
 /**
- * GET MY PROFILE (MERGED USER + PROFILE)
+ * GET MY PROFILE (PRIVATE — MERGED USER + PROFILE)
  */
 exports.getMyProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select(
-      'email role status authenticityScore trustTier'
-    );
+    let profile = await Profile.findOne({ user: req.user.id })
+      .populate('user', 'name email role status trustTier authenticityScore');
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    let profile = await Profile.findOne({ user: user._id });
-
-    // Auto-create profile if missing
+    // Self-healing profile
     if (!profile) {
-      profile = await Profile.create({ user: user._id });
+      profile = await Profile.create({
+        user: req.user.id,
+        fullName: '',
+        bio: '',
+        skills: []
+      });
+
+      profile = await Profile.findOne({ user: req.user.id })
+        .populate('user', 'name email role status trustTier authenticityScore');
     }
 
+    // ✅ ADD THIS EXACTLY HERE
+    const isProfileComplete =
+      Boolean(profile.fullName) &&
+      Boolean(profile.bio) &&
+      Array.isArray(profile.skills) &&
+      profile.skills.length > 0;
+
+    // ✅ FINAL RESPONSE
     res.json({
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      authenticityScore: profile.authenticityScore ?? user.authenticityScore,
-      trustTier: profile.trustTier ?? user.trustTier,
-      fullName: profile.fullName || '',
-      bio: profile.bio || '',
-      skills: profile.skills || []
+      id: profile.user._id,
+      name: profile.user.name,
+      email: profile.user.email,
+      role: profile.user.role,
+      status: profile.user.status,
+      trustTier: profile.user.trustTier,
+      authenticityScore: profile.user.authenticityScore,
+
+      fullName: profile.fullName,
+      bio: profile.bio,
+      skills: profile.skills,
+
+      isProfileComplete
     });
+
   } catch (err) {
-    console.error(err);
+    console.error('Get my profile error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -66,27 +81,28 @@ exports.getMyProfile = async (req, res) => {
  */
 exports.getProfileByUserId = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select(
-      'email role authenticityScore trustTier'
-    );
+    const profile = await Profile.findOne({ user: req.params.userId })
+      .populate(
+        'user',
+        'name role trustTier authenticityScore'
+      );
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found' });
     }
 
-    const profile = await Profile.findOne({ user: user._id });
-
     res.json({
-      email: user.email,
-      role: user.role,
-      authenticityScore: profile?.authenticityScore ?? user.authenticityScore,
-      trustTier: profile?.trustTier ?? user.trustTier,
-      fullName: profile?.fullName || '',
-      bio: profile?.bio || '',
-      skills: profile?.skills || []
+      name: profile.user.name,
+      role: profile.user.role,
+      trustTier: profile.user.trustTier,
+      authenticityScore: profile.user.authenticityScore,
+
+      fullName: profile.fullName || '',
+      bio: profile.bio || '',
+      skills: profile.skills || []
     });
   } catch (err) {
-    console.error(err);
+    console.error('Get profile by user ID error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -104,15 +120,29 @@ exports.updateProfile = async (req, res) => {
         skills: req.body.skills
       },
       { new: true }
+    ).populate(
+      'user',
+      'name email role status trustTier authenticityScore'
     );
 
     if (!profile) {
       return res.status(404).json({ message: 'Profile not found' });
     }
 
-    res.json(profile);
+    res.json({
+      name: profile.user.name,
+      email: profile.user.email,
+      role: profile.user.role,
+      status: profile.user.status,
+      trustTier: profile.user.trustTier,
+      authenticityScore: profile.user.authenticityScore,
+
+      fullName: profile.fullName || '',
+      bio: profile.bio || '',
+      skills: profile.skills || []
+    });
   } catch (err) {
-    console.error(err);
+    console.error('Update profile error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
