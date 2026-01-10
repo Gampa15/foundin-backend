@@ -6,6 +6,7 @@ const upload = require('../utils/upload');
 
 const {
   createIdea,
+  getMyIdeas,
   getPublicIdeas,
   getIdeasByStartup,
   likeIdea
@@ -18,6 +19,7 @@ router.post(
   createIdea
 );
 
+router.get('/my', auth, getMyIdeas);
 router.get('/public', getPublicIdeas);
 router.get('/startup/:startupId', getIdeasByStartup);
 router.post('/:id/like', auth, likeIdea);

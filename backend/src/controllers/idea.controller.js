@@ -29,6 +29,18 @@ exports.createIdea = async (req, res) => {
   }
 };
 
+exports.getMyIdeas = async (req, res) => {
+  try {
+    const ideas = await Idea.find({ owner: req.user.id })
+      .populate('startup', 'name');
+
+    res.json(ideas);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
 // PUBLIC FEED
 exports.getPublicIdeas = async (req, res) => {
   try {
