@@ -10,7 +10,7 @@ const {
 } = require('../controllers/startup.controller');
 
 router.post('/', auth, createStartup);
-router.get('/me', auth, getMyStartups);
+router.get('/me', auth, getMyStartups);   // used in Create Idea dropdown
 router.get('/:id', getStartupById);
 router.put('/:id', auth, updateStartup);
 
