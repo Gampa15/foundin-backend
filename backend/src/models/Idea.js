@@ -39,8 +39,14 @@ const ideaSchema = new mongoose.Schema(
       default: 'PUBLIC'
     },
 
+    isDraft: {
+      type: Boolean,
+      default: false
+    },
+
     /* =====================
        STARTUP CONTEXT
+       (AUTO-FILLED FROM STARTUP)
     ====================== */
     sector: {
       type: String,
@@ -60,6 +66,12 @@ const ideaSchema = new mongoose.Schema(
       ]
     },
 
+    stage: {
+      type: String,
+      enum: ['IDEA', 'PROTOTYPE', 'MARKET', 'MVP', 'EARLY_USERS', 'REVENUE'],
+      default: 'IDEA'
+    },
+
     /* =====================
        PROBLEM & MARKET
     ====================== */
@@ -67,6 +79,12 @@ const ideaSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1500
+    },
+
+    solution: {
+      type: String,
+      trim: true,
+      maxlength: 2000
     },
 
     targetAudience: {
@@ -80,32 +98,18 @@ const ideaSchema = new mongoose.Schema(
       default: 'UNKNOWN'
     },
 
-    /* =====================
-       SOLUTION
-    ====================== */
-    solution: {
-      type: String,
-      trim: true,
-      maxlength: 2000
-    },
-
     differentiation: {
       type: String,
       trim: true
     },
 
     /* =====================
-       TRACTION & STAGE
+       TRACTION
     ====================== */
-    stage: {
-      type: String,
-      enum: ['IDEA', 'MVP', 'EARLY_USERS', 'REVENUE'],
-      default: 'IDEA'
-    },
-
     traction: {
       type: String,
-      trim: true
+      trim: true,
+      default: ''
     },
 
     /* =====================
@@ -152,15 +156,7 @@ const ideaSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
       }
-    ],
-
-    /* =====================
-       STATUS
-    ====================== */
-    isDraft: {
-      type: Boolean,
-      default: true
-    }
+    ]
   },
   { timestamps: true }
 );

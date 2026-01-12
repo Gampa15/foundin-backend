@@ -1,9 +1,12 @@
 const Idea = require('../models/Idea');
 const Startup = require('../models/Startup');
 
-// CREATE IDEA
+/* =========================
+   CREATE IDEA
+========================= */
 exports.createIdea = async (req, res) => {
   try {
+    // Ensure startup belongs to user
     const startup = await Startup.findOne({
       _id: req.body.startupId,
       owner: req.user.id
@@ -14,34 +17,46 @@ exports.createIdea = async (req, res) => {
     }
 
     const idea = await Idea.create({
+      /* relations */
       startup: startup._id,
       owner: req.user.id,
 
-      // basic idea info
+      /* idea basics */
       title: req.body.title,
-      description: req.body.description,
+      description: req.body.description || '',
       visibility: req.body.visibility || 'PUBLIC',
+      isDraft: req.body.isDraft || false,
 
-      // 🔑 sector snapshot from startup
+      /* snapshot from startup */
       sector: startup.sector,
+      stage: startup.stage || 'IDEA',
 
-      // optional fields (safe defaults)
-      stage: req.body.stage || 'IDEA',
+      /* problem & solution */
       problem: req.body.problem || '',
       solution: req.body.solution || '',
       targetAudience: req.body.targetAudience || '',
-      traction: req.body.traction || '',
-      ask: req.body.ask || [],
+      marketSize: req.body.marketSize || 'UNKNOWN',
+      differentiation: req.body.differentiation || '',
 
-      // media
+      /* traction */
+      traction: req.body.traction || '',
+
+      /* team */
+      teamSize: req.body.teamSize || 1,
+      missingSkills: req.body.missingSkills || [],
+
+      /* ask / intent */
+      ask: Array.isArray(req.body.ask) ? req.body.ask : [],
+
+      /* media */
       mediaUrl: req.file ? req.file.path : null,
       mediaType: req.file
         ? req.file.mimetype.startsWith('video')
           ? 'VIDEO'
-          : 'IMAGE'
-        : null,
-
-      isDraft: false
+          : req.file.mimetype.startsWith('image')
+          ? 'IMAGE'
+          : 'DOC'
+        : null
     });
 
     res.status(201).json(idea);
@@ -51,23 +66,27 @@ exports.createIdea = async (req, res) => {
   }
 };
 
+/* =========================
+   GET MY IDEAS
+========================= */
 exports.getMyIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ owner: req.user.id })
-      .populate('startup', 'name');
+      .populate('startup', 'name stage sector');
 
     res.json(ideas);
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-
-// PUBLIC FEED
+/* =========================
+   PUBLIC FEED
+========================= */
 exports.getPublicIdeas = async (req, res) => {
   try {
-    const ideas = await Idea.find({ visibility: 'PUBLIC' })
-      .populate('startup', 'name stage')
+    const ideas = await Idea.find({ visibility: 'PUBLIC', isDraft: false })
+      .populate('startup', 'name stage sector')
       .populate('owner', 'email');
 
     res.json(ideas);
@@ -76,7 +95,9 @@ exports.getPublicIdeas = async (req, res) => {
   }
 };
 
-// STARTUP IDEAS
+/* =========================
+   STARTUP IDEAS
+========================= */
 exports.getIdeasByStartup = async (req, res) => {
   try {
     const ideas = await Idea.find({ startup: req.params.startupId });
@@ -86,7 +107,9 @@ exports.getIdeasByStartup = async (req, res) => {
   }
 };
 
-// LIKE IDEA
+/* =========================
+   LIKE IDEA
+========================= */
 exports.likeIdea = async (req, res) => {
   try {
     const idea = await Idea.findById(req.params.id);
