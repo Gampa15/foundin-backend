@@ -14,17 +14,39 @@ exports.createIdea = async (req, res) => {
     }
 
     const idea = await Idea.create({
-      startup: req.body.startupId,
+      startup: startup._id,
       owner: req.user.id,
+
+      // basic idea info
       title: req.body.title,
       description: req.body.description,
-      visibility: req.body.visibility,
+      visibility: req.body.visibility || 'PUBLIC',
+
+      // 🔑 sector snapshot from startup
+      sector: startup.sector,
+
+      // optional fields (safe defaults)
+      stage: req.body.stage || 'IDEA',
+      problem: req.body.problem || '',
+      solution: req.body.solution || '',
+      targetAudience: req.body.targetAudience || '',
+      traction: req.body.traction || '',
+      ask: req.body.ask || [],
+
+      // media
       mediaUrl: req.file ? req.file.path : null,
-      mediaType: req.file ? req.file.mimetype.startsWith('video') ? 'VIDEO' : 'IMAGE' : null
+      mediaType: req.file
+        ? req.file.mimetype.startsWith('video')
+          ? 'VIDEO'
+          : 'IMAGE'
+        : null,
+
+      isDraft: false
     });
 
     res.status(201).json(idea);
   } catch (error) {
+    console.error('Create idea error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
