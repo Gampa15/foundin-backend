@@ -17,6 +17,7 @@ const errorHandler = require('./middlewares/error.middleware');
 const { apiLimiter, authLimiter } = require('./middlewares/rateLimit.middleware');
 
 const app = express();
+app.set('etag', false);
 
 /* ---------- TRUST PROXY (REQUIRED FOR RENDER) ---------- */
 app.set('trust proxy', 1);

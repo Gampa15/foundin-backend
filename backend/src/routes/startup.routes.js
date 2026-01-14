@@ -10,7 +10,15 @@ const {
 } = require('../controllers/startup.controller');
 
 router.post('/', auth, createStartup);
-router.get('/me', auth, getMyStartups);   // used in Create Idea dropdown
+router.get(
+  '/me',
+  auth,
+  (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    next();
+  },
+  getMyStartups
+); // used in Create Idea dropdown
 router.get('/:id', getStartupById);
 router.put('/:id', auth, updateStartup);
 

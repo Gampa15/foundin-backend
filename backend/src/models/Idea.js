@@ -52,19 +52,17 @@ const ideaSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        'FinTech',
-        'HealthTech',
-        'EdTech',
-        'AgriTech',
+        'FINTECH',
+        'HEALTHTECH',
+        'EDTECH',
+        'SAAS',
         'AI',
-        'SaaS',
-        'E-Commerce',
-        'Climate',
-        'Logistics',
-        'Consumer',
-        'Other'
+        'ECOMMERCE',
+        'AGRI',
+        'OTHER'
       ]
     },
+
 
     stage: {
       type: String,
