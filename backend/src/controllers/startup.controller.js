@@ -36,7 +36,7 @@ exports.getMyStartups = async (req, res) => {
     const startups = await Startup.find({ owner: req.user.id }).select(
       'name sector stage'
     );
-
+    console.log('STARTUPS FROM DB:', startups);
     res.json(startups);
   } catch (error) {
     console.error('Get my startups error:', error);
