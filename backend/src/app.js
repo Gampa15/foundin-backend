@@ -15,6 +15,7 @@ const adRoutes = require('./routes/ad.routes');
 
 const errorHandler = require('./middlewares/error.middleware');
 const { apiLimiter, authLimiter } = require('./middlewares/rateLimit.middleware');
+const uploadDir = require('./utils/uploadsDir');
 
 const app = express();
 app.set('etag', false);
@@ -36,7 +37,7 @@ app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
 /* ---------- ROUTES ---------- */
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadDir));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
