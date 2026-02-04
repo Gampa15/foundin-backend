@@ -25,7 +25,11 @@ app.set('trust proxy', 1);
 
 /* ---------- GLOBAL MIDDLEWARES ---------- */
 app.use(cors());
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 app.use(express.json());
 
 if (process.env.NODE_ENV === 'development') {
@@ -37,7 +41,15 @@ app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
 /* ---------- ROUTES ---------- */
-app.use('/uploads', express.static(uploadDir));
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+  },
+  express.static(uploadDir)
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
