@@ -21,15 +21,17 @@ exports.createIdea = async (req, res) => {
     let mediaType = null;
 
     if (req.file) {
-      if (cloudinaryEnabled) {
-        const result = await uploadBuffer(req.file.buffer, {
-          resource_type: 'auto',
-          folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+      if (!cloudinaryEnabled) {
+        return res.status(500).json({
+          message: 'Cloudinary is not configured'
         });
-        mediaUrl = result.secure_url;
-      } else {
-        mediaUrl = `/uploads/${req.file.filename}`;
       }
+
+      const result = await uploadBuffer(req.file.buffer, {
+        resource_type: 'auto',
+        folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+      });
+      mediaUrl = result.secure_url;
 
       mediaType = req.file.mimetype.startsWith('video')
         ? 'VIDEO'

@@ -1,16 +1,37 @@
 const Verification = require('../models/Verification');
 const Startup = require('../models/Startup');
+const { cloudinaryEnabled, uploadBuffer } = require('../utils/cloudinary');
 
 // APPLY FOR VERIFICATION
 exports.applyVerification = async (req, res) => {
   try {
     const { level, startupId } = req.body;
 
+    let documents = [];
+
+    if (req.files && req.files.length > 0) {
+      if (!cloudinaryEnabled) {
+        return res.status(500).json({
+          message: 'Cloudinary is not configured'
+        });
+      }
+
+      const uploads = await Promise.all(
+        req.files.map(file =>
+          uploadBuffer(file.buffer, {
+            resource_type: 'auto',
+            folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+          })
+        )
+      );
+      documents = uploads.map(result => result.secure_url);
+    }
+
     const verification = await Verification.create({
       user: req.user.id,
       startup: startupId || null,
       level,
-      documents: req.files ? req.files.map(f => f.path) : []
+      documents
     });
 
     res.status(201).json({

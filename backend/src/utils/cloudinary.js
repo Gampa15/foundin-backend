@@ -9,7 +9,11 @@ const hasCreds = Boolean(
 
 const cloudinaryEnabled = hasUrl || hasCreds;
 
-if (hasCreds) {
+if (hasUrl) {
+  cloudinary.config({
+    cloudinary_url: process.env.CLOUDINARY_URL
+  });
+} else if (hasCreds) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
