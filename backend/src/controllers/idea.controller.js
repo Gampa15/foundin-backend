@@ -27,11 +27,25 @@ exports.createIdea = async (req, res) => {
         });
       }
 
-      const result = await uploadBuffer(req.file.buffer, {
-        resource_type: 'auto',
-        folder: process.env.CLOUDINARY_FOLDER || 'foundin'
-      });
-      mediaUrl = result.secure_url;
+      if (!req.file.buffer) {
+        return res.status(400).json({
+          message: 'Media upload failed (missing file buffer)'
+        });
+      }
+
+      try {
+        const result = await uploadBuffer(req.file.buffer, {
+          resource_type: 'auto',
+          folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+        });
+        mediaUrl = result.secure_url;
+      } catch (err) {
+        console.error('Cloudinary upload failed:', err);
+        return res.status(500).json({
+          message: 'Cloudinary upload failed',
+          error: err.message
+        });
+      }
 
       mediaType = req.file.mimetype.startsWith('video')
         ? 'VIDEO'

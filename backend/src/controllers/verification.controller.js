@@ -16,15 +16,30 @@ exports.applyVerification = async (req, res) => {
         });
       }
 
-      const uploads = await Promise.all(
-        req.files.map(file =>
-          uploadBuffer(file.buffer, {
-            resource_type: 'auto',
-            folder: process.env.CLOUDINARY_FOLDER || 'foundin'
-          })
-        )
-      );
-      documents = uploads.map(result => result.secure_url);
+      const missingBuffer = req.files.some(file => !file.buffer);
+      if (missingBuffer) {
+        return res.status(400).json({
+          message: 'Document upload failed (missing file buffer)'
+        });
+      }
+
+      try {
+        const uploads = await Promise.all(
+          req.files.map(file =>
+            uploadBuffer(file.buffer, {
+              resource_type: 'auto',
+              folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+            })
+          )
+        );
+        documents = uploads.map(result => result.secure_url);
+      } catch (err) {
+        console.error('Cloudinary upload failed:', err);
+        return res.status(500).json({
+          message: 'Cloudinary upload failed',
+          error: err.message
+        });
+      }
     }
 
     const verification = await Verification.create({

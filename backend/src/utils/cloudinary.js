@@ -10,14 +10,26 @@ const hasCreds = Boolean(
 const cloudinaryEnabled = hasUrl || hasCreds;
 
 if (hasUrl) {
-  cloudinary.config({
-    cloudinary_url: process.env.CLOUDINARY_URL
-  });
+  try {
+    const parsed = new URL(process.env.CLOUDINARY_URL);
+    cloudinary.config({
+      cloud_name: parsed.hostname,
+      api_key: parsed.username,
+      api_secret: parsed.password,
+      secure: true
+    });
+  } catch (err) {
+    // Fall back to SDK URL config if parsing fails
+    cloudinary.config({
+      cloudinary_url: process.env.CLOUDINARY_URL
+    });
+  }
 } else if (hasCreds) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
   });
 }
 
