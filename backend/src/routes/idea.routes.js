@@ -6,10 +6,13 @@ const upload = require('../utils/upload');
 
 const {
   createIdea,
+  getIdeaById,
   getMyIdeas,
   getPublicIdeas,
   getIdeasByStartup,
-  likeIdea
+  likeIdea,
+  updateIdea,
+  deleteIdea
 } = require('../controllers/idea.controller');
 
 router.post(
@@ -23,5 +26,8 @@ router.get('/my', auth, getMyIdeas);
 router.get('/public', getPublicIdeas);
 router.get('/startup/:startupId', getIdeasByStartup);
 router.post('/:id/like', auth, likeIdea);
+router.get('/:id', auth, getIdeaById);
+router.put('/:id', auth, upload.single('media'), updateIdea);
+router.delete('/:id', auth, deleteIdea);
 
 module.exports = router;
