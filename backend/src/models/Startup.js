@@ -36,7 +36,7 @@ const startupSchema = new mongoose.Schema(
 
     stage: {
       type: String,
-      enum: ['IDEA', 'PROTOTYPE', 'MARKET'],
+      enum: ['IDEA', 'PROTOTYPE', 'MARKET', 'REVENUE'],
       default: 'IDEA'
     },
 

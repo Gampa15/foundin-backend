@@ -1,5 +1,6 @@
 const Idea = require('../models/Idea');
 const Startup = require('../models/Startup');
+const { cloudinaryEnabled, uploadBuffer } = require('../utils/cloudinary');
 
 /* =========================
    CREATE IDEA
@@ -16,20 +17,56 @@ exports.createIdea = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    let mediaUrl = null;
+    let mediaType = null;
+
+    if (req.file) {
+      if (cloudinaryEnabled) {
+        const result = await uploadBuffer(req.file.buffer, {
+          resource_type: 'auto',
+          folder: process.env.CLOUDINARY_FOLDER || 'foundin'
+        });
+        mediaUrl = result.secure_url;
+      } else {
+        mediaUrl = `/uploads/${req.file.filename}`;
+      }
+
+      mediaType = req.file.mimetype.startsWith('video')
+        ? 'VIDEO'
+        : req.file.mimetype.startsWith('image')
+        ? 'IMAGE'
+        : 'DOC';
+    }
+
+    const updatedSector = req.body.sector || startup.sector;
+    const updatedStage = req.body.stage || startup.stage || 'IDEA';
+
+    if (updatedSector !== startup.sector || updatedStage !== startup.stage) {
+      await Startup.updateOne(
+        { _id: startup._id },
+        { sector: updatedSector, stage: updatedStage }
+      );
+    }
+
+    const earlyStages = ['IDEA', 'PROTOTYPE'];
+    const sanitizedTraction = earlyStages.includes(updatedStage)
+      ? ''
+      : (req.body.traction || '');
+
     const idea = await Idea.create({
       /* relations */
       startup: startup._id,
       owner: req.user.id,
 
       /* idea basics */
-      title: req.body.title,
+      title: req.body.title || `${updatedStage} Stage`,
       description: req.body.description || '',
       visibility: req.body.visibility || 'PUBLIC',
       isDraft: req.body.isDraft || false,
 
       /* snapshot from startup */
-      sector: startup.sector,
-      stage: startup.stage || 'IDEA',
+      sector: updatedSector,
+      stage: updatedStage,
 
       /* problem & solution */
       problem: req.body.problem || '',
@@ -39,7 +76,7 @@ exports.createIdea = async (req, res) => {
       differentiation: req.body.differentiation || '',
 
       /* traction */
-      traction: req.body.traction || '',
+      traction: sanitizedTraction,
 
       /* team */
       teamSize: req.body.teamSize || 1,
@@ -49,14 +86,8 @@ exports.createIdea = async (req, res) => {
       ask: Array.isArray(req.body.ask) ? req.body.ask : [],
 
       /* media */
-      mediaUrl: req.file ? req.file.path : null,
-      mediaType: req.file
-        ? req.file.mimetype.startsWith('video')
-          ? 'VIDEO'
-          : req.file.mimetype.startsWith('image')
-          ? 'IMAGE'
-          : 'DOC'
-        : null
+      mediaUrl,
+      mediaType
     });
 
     res.status(201).json(idea);

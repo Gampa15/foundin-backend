@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
+const Startup = require('../models/Startup');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not defined');
@@ -24,7 +25,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, password, role, startupName } = req.body;
 
     const existingUser = await User.findOne({
       $or: [{ email }, { phone }]
@@ -54,6 +55,18 @@ exports.register = async (req, res) => {
       bio: '',
       skills: []
     });
+
+    if (role === 'FOUNDER' && startupName && startupName.trim()) {
+      await Startup.create({
+        owner: user._id,
+        name: startupName.trim(),
+        sector: 'OTHER',
+        domain: '',
+        stage: 'IDEA',
+        description: '',
+        website: ''
+      });
+    }
 
     // 3️⃣ Generate token
     const token = generateToken(user._id);
