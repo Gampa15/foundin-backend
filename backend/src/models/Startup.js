@@ -31,7 +31,8 @@ const startupSchema = new mongoose.Schema(
 
     domain: {
       type: String,
-      required: true
+      trim: true,
+      default: ''
     },
 
     stage: {
