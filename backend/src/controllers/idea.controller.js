@@ -69,6 +69,20 @@ exports.createIdea = async (req, res) => {
       ? ''
       : (req.body.traction || '');
 
+    const missingSkills = req.body.missingSkills;
+    const normalizedMissingSkills = Array.isArray(missingSkills)
+      ? missingSkills.filter(Boolean)
+      : (typeof missingSkills === 'string' && missingSkills)
+      ? [missingSkills]
+      : [];
+
+    const ask = req.body.ask;
+    const normalizedAsk = Array.isArray(ask)
+      ? ask.filter(Boolean)
+      : (typeof ask === 'string' && ask)
+      ? [ask]
+      : [];
+
     const idea = await Idea.create({
       /* relations */
       startup: startup._id,
@@ -96,10 +110,10 @@ exports.createIdea = async (req, res) => {
 
       /* team */
       teamSize: req.body.teamSize || 1,
-      missingSkills: req.body.missingSkills || [],
+      missingSkills: normalizedMissingSkills,
 
       /* ask / intent */
-      ask: Array.isArray(req.body.ask) ? req.body.ask : [],
+      ask: normalizedAsk,
 
       /* media */
       mediaUrl,
