@@ -268,7 +268,8 @@ exports.deleteIdea = async (req, res) => {
 exports.getMyIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ owner: req.user.id })
-      .populate('startup', 'name stage sector');
+      .populate('startup', 'name stage sector')
+      .populate('owner', 'name email role');
 
     res.json(ideas);
   } catch (error) {
@@ -283,7 +284,7 @@ exports.getPublicIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ visibility: 'PUBLIC', isDraft: false })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'email');
+      .populate('owner', 'name email role');
 
     res.json(ideas);
   } catch (error) {
