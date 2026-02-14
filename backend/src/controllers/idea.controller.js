@@ -135,7 +135,10 @@ exports.getIdeaById = async (req, res) => {
     const idea = await Idea.findOne({
       _id: req.params.id,
       owner: req.user.id
-    }).populate('startup', 'name stage sector');
+    })
+      .populate('startup', 'name stage sector')
+      .populate('owner', 'name email role authenticityScore trustTier')
+      .populate('comments.user', 'name email');
 
     if (!idea) {
       return res.status(404).json({ message: 'Idea not found' });
@@ -269,7 +272,8 @@ exports.getMyIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ owner: req.user.id })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'name email role authenticityScore trustTier');
+      .populate('owner', 'name email role authenticityScore trustTier')
+      .populate('comments.user', 'name email');
 
     res.json(ideas);
   } catch (error) {
@@ -284,7 +288,8 @@ exports.getPublicIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ visibility: 'PUBLIC', isDraft: false })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'name email role authenticityScore trustTier');
+      .populate('owner', 'name email role authenticityScore trustTier')
+      .populate('comments.user', 'name email');
 
     res.json(ideas);
   } catch (error) {
@@ -297,7 +302,10 @@ exports.getPublicIdeas = async (req, res) => {
 ========================= */
 exports.getIdeasByStartup = async (req, res) => {
   try {
-    const ideas = await Idea.find({ startup: req.params.startupId });
+    const ideas = await Idea.find({ startup: req.params.startupId })
+      .populate('startup', 'name stage sector')
+      .populate('owner', 'name email role authenticityScore trustTier')
+      .populate('comments.user', 'name email');
     res.json(ideas);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -321,6 +329,71 @@ exports.likeIdea = async (req, res) => {
     }
 
     res.json({ likes: idea.likes.length });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
+   GET IDEA COMMENTS
+========================= */
+exports.getIdeaComments = async (req, res) => {
+  try {
+    const idea = await Idea.findById(req.params.id)
+      .select('visibility owner comments')
+      .populate('comments.user', 'name email');
+
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const isOwner = idea.owner?.toString() === req.user.id;
+    if (idea.visibility !== 'PUBLIC' && !isOwner) {
+      return res.status(403).json({ message: 'Not authorized to view comments for this idea' });
+    }
+
+    res.json({
+      comments: idea.comments || [],
+      commentsCount: Array.isArray(idea.comments) ? idea.comments.length : 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
+   COMMENT IDEA
+========================= */
+exports.addComment = async (req, res) => {
+  try {
+    const text = (req.body?.text || '').trim();
+    if (!text) {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+
+    const idea = await Idea.findById(req.params.id);
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const isOwner = idea.owner?.toString() === req.user.id;
+    if (idea.visibility !== 'PUBLIC' && !isOwner) {
+      return res.status(403).json({ message: 'Not authorized to comment on this idea' });
+    }
+
+    idea.comments.push({
+      user: req.user.id,
+      text
+    });
+
+    await idea.save();
+    await idea.populate('comments.user', 'name email');
+
+    const comment = idea.comments[idea.comments.length - 1];
+    res.status(201).json({
+      comment,
+      commentsCount: idea.comments.length
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

@@ -11,6 +11,8 @@ const {
   getPublicIdeas,
   getIdeasByStartup,
   likeIdea,
+  getIdeaComments,
+  addComment,
   updateIdea,
   deleteIdea
 } = require('../controllers/idea.controller');
@@ -26,6 +28,8 @@ router.get('/my', auth, getMyIdeas);
 router.get('/public', getPublicIdeas);
 router.get('/startup/:startupId', getIdeasByStartup);
 router.post('/:id/like', auth, likeIdea);
+router.get('/:id/comments', auth, getIdeaComments);
+router.post('/:id/comments', auth, addComment);
 router.get('/:id', auth, getIdeaById);
 router.put('/:id', auth, upload.single('media'), updateIdea);
 router.delete('/:id', auth, deleteIdea);
