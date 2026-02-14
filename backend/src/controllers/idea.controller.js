@@ -400,7 +400,7 @@ exports.addComment = async (req, res) => {
       return res.status(400).json({ message: 'Comment text is required' });
     }
 
-    const idea = await Idea.findById(req.params.id);
+    const idea = await Idea.findById(req.params.id).select('visibility owner comments');
     if (!idea) {
       return res.status(404).json({ message: 'Idea not found' });
     }
@@ -410,26 +410,39 @@ exports.addComment = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to comment on this idea' });
     }
 
-    idea.comments.push({
-      user: req.user.id,
-      text
-    });
+    const commentId = new mongoose.Types.ObjectId();
+    const createdAt = new Date();
 
-    await idea.save();
+    // Atomic push avoids re-validating legacy malformed comments on full document save.
+    await Idea.updateOne(
+      { _id: req.params.id },
+      {
+        $push: {
+          comments: {
+            _id: commentId,
+            user: req.user.id,
+            text,
+            createdAt
+          }
+        }
+      }
+    );
 
-    const comment = idea.comments[idea.comments.length - 1];
     const user = await User.findById(req.user.id).select('name email').lean();
+    const commentsCount = Array.isArray(idea.comments) ? idea.comments.length + 1 : 1;
+
     res.status(201).json({
       comment: {
-        _id: comment?._id,
-        text: comment?.text || '',
-        createdAt: comment?.createdAt || null,
+        _id: commentId,
+        text,
+        createdAt,
         user: user ? { _id: user._id, name: user.name, email: user.email } : null
       },
-      commentsCount: idea.comments.length
+      commentsCount
     });
   } catch (error) {
     console.error('Add comment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
