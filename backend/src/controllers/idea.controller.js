@@ -400,7 +400,7 @@ exports.addComment = async (req, res) => {
       return res.status(400).json({ message: 'Comment text is required' });
     }
 
-    const idea = await Idea.findById(req.params.id).select('visibility owner comments');
+    const idea = await Idea.findById(req.params.id).select('visibility owner');
     if (!idea) {
       return res.status(404).json({ message: 'Idea not found' });
     }
@@ -410,39 +410,48 @@ exports.addComment = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to comment on this idea' });
     }
 
-    const commentId = new mongoose.Types.ObjectId();
     const createdAt = new Date();
 
-    // Atomic push avoids re-validating legacy malformed comments on full document save.
-    await Idea.updateOne(
-      { _id: req.params.id },
+    const updatedIdea = await Idea.findByIdAndUpdate(
+      req.params.id,
       {
         $push: {
           comments: {
-            _id: commentId,
             user: req.user.id,
             text,
             createdAt
           }
         }
+      },
+      {
+        new: true,
+        select: 'comments'
       }
     );
 
+    if (!updatedIdea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const latestComment = Array.isArray(updatedIdea.comments)
+      ? updatedIdea.comments[updatedIdea.comments.length - 1]
+      : null;
+
     const user = await User.findById(req.user.id).select('name email').lean();
-    const commentsCount = Array.isArray(idea.comments) ? idea.comments.length + 1 : 1;
 
     res.status(201).json({
       comment: {
-        _id: commentId,
-        text,
-        createdAt,
+        _id: latestComment?._id,
+        text: latestComment?.text || text,
+        createdAt: latestComment?.createdAt || createdAt,
         user: user ? { _id: user._id, name: user.name, email: user.email } : null
       },
-      commentsCount
+      commentsCount: Array.isArray(updatedIdea.comments) ? updatedIdea.comments.length : 0
     });
   } catch (error) {
     console.error('Add comment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
