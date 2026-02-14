@@ -1,5 +1,7 @@
 const Idea = require('../models/Idea');
 const Startup = require('../models/Startup');
+const User = require('../models/User');
+const mongoose = require('mongoose');
 const { cloudinaryEnabled, uploadBuffer } = require('../utils/cloudinary');
 
 /* =========================
@@ -272,11 +274,11 @@ exports.getMyIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ owner: req.user.id })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'name email role authenticityScore trustTier')
-      .populate('comments.user', 'name email');
+      .populate('owner', 'name email role authenticityScore trustTier');
 
     res.json(ideas);
   } catch (error) {
+    console.error('Get my ideas error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -288,11 +290,11 @@ exports.getPublicIdeas = async (req, res) => {
   try {
     const ideas = await Idea.find({ visibility: 'PUBLIC', isDraft: false })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'name email role authenticityScore trustTier')
-      .populate('comments.user', 'name email');
+      .populate('owner', 'name email role authenticityScore trustTier');
 
     res.json(ideas);
   } catch (error) {
+    console.error('Get public ideas error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -304,10 +306,10 @@ exports.getIdeasByStartup = async (req, res) => {
   try {
     const ideas = await Idea.find({ startup: req.params.startupId })
       .populate('startup', 'name stage sector')
-      .populate('owner', 'name email role authenticityScore trustTier')
-      .populate('comments.user', 'name email');
+      .populate('owner', 'name email role authenticityScore trustTier');
     res.json(ideas);
   } catch (error) {
+    console.error('Get ideas by startup error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -341,7 +343,7 @@ exports.getIdeaComments = async (req, res) => {
   try {
     const idea = await Idea.findById(req.params.id)
       .select('visibility owner comments')
-      .populate('comments.user', 'name email');
+      .lean();
 
     if (!idea) {
       return res.status(404).json({ message: 'Idea not found' });
@@ -352,11 +354,38 @@ exports.getIdeaComments = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view comments for this idea' });
     }
 
+    const rawComments = Array.isArray(idea.comments) ? idea.comments : [];
+    const userIds = [
+      ...new Set(
+        rawComments
+          .map((comment) => comment?.user)
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .map((id) => id.toString())
+      )
+    ];
+
+    const users = userIds.length > 0
+      ? await User.find({ _id: { $in: userIds } }).select('name email').lean()
+      : [];
+    const usersById = new Map(users.map((user) => [user._id.toString(), user]));
+
+    const comments = rawComments.map((comment) => {
+      const userId = comment?.user ? comment.user.toString() : '';
+      const user = usersById.get(userId);
+      return {
+        _id: comment?._id,
+        text: comment?.text || '',
+        createdAt: comment?.createdAt || null,
+        user: user ? { _id: user._id, name: user.name, email: user.email } : null
+      };
+    });
+
     res.json({
-      comments: idea.comments || [],
-      commentsCount: Array.isArray(idea.comments) ? idea.comments.length : 0
+      comments,
+      commentsCount: comments.length
     });
   } catch (error) {
+    console.error('Get idea comments error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -387,14 +416,20 @@ exports.addComment = async (req, res) => {
     });
 
     await idea.save();
-    await idea.populate('comments.user', 'name email');
 
     const comment = idea.comments[idea.comments.length - 1];
+    const user = await User.findById(req.user.id).select('name email').lean();
     res.status(201).json({
-      comment,
+      comment: {
+        _id: comment?._id,
+        text: comment?.text || '',
+        createdAt: comment?.createdAt || null,
+        user: user ? { _id: user._id, name: user.name, email: user.email } : null
+      },
       commentsCount: idea.comments.length
     });
   } catch (error) {
+    console.error('Add comment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
