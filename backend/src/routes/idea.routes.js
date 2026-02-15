@@ -11,6 +11,7 @@ const {
   getPublicIdeas,
   getIdeasByStartup,
   likeIdea,
+  toggleSaveIdea,
   addIdeaView,
   getIdeaComments,
   addComment,
@@ -31,6 +32,7 @@ router.get('/my', auth, getMyIdeas);
 router.get('/public', getPublicIdeas);
 router.get('/startup/:startupId', getIdeasByStartup);
 router.post('/:id/like', auth, likeIdea);
+router.post('/:id/save', auth, toggleSaveIdea);
 router.post('/:id/view', addIdeaView);
 router.get('/:id/comments', auth, getIdeaComments);
 router.post('/:id/comments', auth, addComment);

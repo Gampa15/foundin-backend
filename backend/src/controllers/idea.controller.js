@@ -423,6 +423,44 @@ exports.getIdeaComments = async (req, res) => {
 };
 
 /* =========================
+   SAVE IDEA (TOGGLE)
+========================= */
+exports.toggleSaveIdea = async (req, res) => {
+  try {
+    const idea = await Idea.findById(req.params.id).select('savedBy');
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const hasSaved = Array.isArray(idea.savedBy)
+      && idea.savedBy.map((id) => id.toString()).includes(req.user.id);
+
+    if (hasSaved) {
+      await Idea.updateOne(
+        { _id: req.params.id },
+        { $pull: { savedBy: req.user.id } }
+      );
+    } else {
+      await Idea.updateOne(
+        { _id: req.params.id },
+        { $addToSet: { savedBy: req.user.id } }
+      );
+    }
+
+    const refreshed = await Idea.findById(req.params.id).select('savedBy').lean();
+    const savesCount = Array.isArray(refreshed?.savedBy) ? refreshed.savedBy.length : 0;
+
+    res.json({
+      saved: !hasSaved,
+      savesCount
+    });
+  } catch (error) {
+    console.error('Toggle save idea error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
    ADD IDEA VIEW
 ========================= */
 exports.addIdeaView = async (req, res) => {

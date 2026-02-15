@@ -156,6 +156,13 @@ const ideaSchema = new mongoose.Schema(
       }
     ],
 
+    savedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+
     views: {
       type: Number,
       default: 0
