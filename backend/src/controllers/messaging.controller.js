@@ -127,3 +127,49 @@ exports.getMessages = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// MARK MESSAGES AS SEEN
+exports.markMessagesSeen = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      members: req.user.id
+    }).select('_id');
+
+    if (!conversation) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await Message.updateMany(
+      {
+        conversation: conversationId,
+        sender: { $ne: req.user.id },
+        readBy: { $ne: req.user.id }
+      },
+      { $addToSet: { readBy: req.user.id } }
+    );
+
+    const seenMessages = await Message.find({
+      conversation: conversationId,
+      sender: { $ne: req.user.id },
+      readBy: req.user.id
+    }).select('_id sender');
+
+    const seenMessageIds = seenMessages.map((message) => message._id.toString());
+
+    const io = req.app.get('io');
+    if (io && seenMessageIds.length > 0) {
+      io.to(conversationId.toString()).emit('message:seen', {
+        conversationId,
+        userId: req.user.id,
+        messageIds: seenMessageIds
+      });
+    }
+
+    res.json({ seenMessageIds });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
