@@ -8,6 +8,7 @@ const {
   createIdea,
   getIdeaById,
   getMyIdeas,
+  getSavedIdeas,
   getPublicIdeas,
   getIdeasByStartup,
   likeIdea,
@@ -29,6 +30,7 @@ router.post(
 );
 
 router.get('/my', auth, getMyIdeas);
+router.get('/saved', auth, getSavedIdeas);
 router.get('/public', getPublicIdeas);
 router.get('/startup/:startupId', getIdeasByStartup);
 router.post('/:id/like', auth, likeIdea);

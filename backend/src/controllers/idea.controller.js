@@ -334,6 +334,22 @@ exports.getMyIdeas = async (req, res) => {
 };
 
 /* =========================
+   GET SAVED IDEAS
+========================= */
+exports.getSavedIdeas = async (req, res) => {
+  try {
+    const ideas = await Idea.find({ savedBy: req.user.id })
+      .populate('startup', 'name stage sector')
+      .populate('owner', 'name email role authenticityScore trustTier');
+
+    res.json(ideas);
+  } catch (error) {
+    console.error('Get saved ideas error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
    PUBLIC FEED
 ========================= */
 exports.getPublicIdeas = async (req, res) => {
