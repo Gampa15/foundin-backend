@@ -423,6 +423,28 @@ exports.getIdeaComments = async (req, res) => {
 };
 
 /* =========================
+   ADD IDEA VIEW
+========================= */
+exports.addIdeaView = async (req, res) => {
+  try {
+    const idea = await Idea.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true, select: 'views' }
+    );
+
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    res.json({ views: typeof idea.views === 'number' ? idea.views : 0 });
+  } catch (error) {
+    console.error('Add idea view error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
    COMMENT IDEA
 ========================= */
 exports.addComment = async (req, res) => {
