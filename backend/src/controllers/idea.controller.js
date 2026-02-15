@@ -410,48 +410,59 @@ exports.addComment = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to comment on this idea' });
     }
 
-    const createdAt = new Date();
-
-    const updatedIdea = await Idea.findByIdAndUpdate(
-      req.params.id,
+    const writeResult = await Idea.updateOne(
+      { _id: req.params.id },
       {
         $push: {
           comments: {
             user: req.user.id,
             text,
-            createdAt
+            createdAt: new Date()
           }
         }
-      },
-      {
-        new: true,
-        select: 'comments'
       }
     );
 
-    if (!updatedIdea) {
+    if (!writeResult?.matchedCount) {
       return res.status(404).json({ message: 'Idea not found' });
     }
 
-    const latestComment = Array.isArray(updatedIdea.comments)
-      ? updatedIdea.comments[updatedIdea.comments.length - 1]
-      : null;
+    if (!writeResult?.modifiedCount) {
+      console.error('Add comment write did not modify document', {
+        ideaId: req.params.id,
+        userId: req.user.id
+      });
+      return res.status(500).json({ message: 'Comment could not be saved' });
+    }
+
+    const refreshed = await Idea.findById(req.params.id).select('comments').lean();
+    const comments = Array.isArray(refreshed?.comments) ? refreshed.comments : [];
+    const latestComment = comments[comments.length - 1] || null;
+
+    if (!latestComment) {
+      console.error('Add comment read-after-write found no comments', {
+        ideaId: req.params.id,
+        userId: req.user.id
+      });
+      return res.status(500).json({ message: 'Comment saved state could not be verified' });
+    }
 
     const user = await User.findById(req.user.id).select('name email').lean();
 
     res.status(201).json({
       comment: {
-        _id: latestComment?._id,
-        text: latestComment?.text || text,
-        createdAt: latestComment?.createdAt || createdAt,
+        _id: latestComment._id,
+        text: latestComment.text,
+        createdAt: latestComment.createdAt,
         user: user ? { _id: user._id, name: user.name, email: user.email } : null
       },
-      commentsCount: Array.isArray(updatedIdea.comments) ? updatedIdea.comments.length : 0
+      commentsCount: comments.length
     });
   } catch (error) {
     console.error('Add comment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
