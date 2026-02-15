@@ -4,6 +4,56 @@ const User = require('../models/User');
 const mongoose = require('mongoose');
 const { cloudinaryEnabled, uploadBuffer } = require('../utils/cloudinary');
 
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
+
+const extractCommentUserIds = (comments = []) => {
+  const ids = [];
+  comments.forEach((comment) => {
+    if (comment?.user && isValidObjectId(comment.user)) {
+      ids.push(comment.user.toString());
+    }
+    if (Array.isArray(comment?.replies)) {
+      comment.replies.forEach((reply) => {
+        if (reply?.user && isValidObjectId(reply.user)) {
+          ids.push(reply.user.toString());
+        }
+      });
+    }
+  });
+  return [...new Set(ids)];
+};
+
+const hydrateComments = (comments = [], usersById = new Map(), viewerId = '') => (
+  comments.map((comment) => {
+    const commentUserId = comment?.user ? comment.user.toString() : '';
+    const commentUser = usersById.get(commentUserId) || null;
+    const likes = Array.isArray(comment?.likes) ? comment.likes.map((id) => id.toString()) : [];
+    const replies = Array.isArray(comment?.replies) ? comment.replies.map((reply) => {
+      const replyUserId = reply?.user ? reply.user.toString() : '';
+      const replyUser = usersById.get(replyUserId) || null;
+      const replyLikes = Array.isArray(reply?.likes) ? reply.likes.map((id) => id.toString()) : [];
+      return {
+        _id: reply?._id,
+        text: reply?.text || '',
+        createdAt: reply?.createdAt || null,
+        user: replyUser ? { _id: replyUser._id, name: replyUser.name, email: replyUser.email } : null,
+        likesCount: replyLikes.length,
+        isLiked: viewerId ? replyLikes.includes(viewerId) : false
+      };
+    }) : [];
+
+    return {
+      _id: comment?._id,
+      text: comment?.text || '',
+      createdAt: comment?.createdAt || null,
+      user: commentUser ? { _id: commentUser._id, name: commentUser.name, email: commentUser.email } : null,
+      likesCount: likes.length,
+      isLiked: viewerId ? likes.includes(viewerId) : false,
+      replies
+    };
+  })
+);
+
 /* =========================
    CREATE IDEA
 ========================= */
@@ -355,30 +405,12 @@ exports.getIdeaComments = async (req, res) => {
     }
 
     const rawComments = Array.isArray(idea.comments) ? idea.comments : [];
-    const userIds = [
-      ...new Set(
-        rawComments
-          .map((comment) => comment?.user)
-          .filter((id) => mongoose.Types.ObjectId.isValid(id))
-          .map((id) => id.toString())
-      )
-    ];
-
+    const userIds = extractCommentUserIds(rawComments);
     const users = userIds.length > 0
       ? await User.find({ _id: { $in: userIds } }).select('name email').lean()
       : [];
     const usersById = new Map(users.map((user) => [user._id.toString(), user]));
-
-    const comments = rawComments.map((comment) => {
-      const userId = comment?.user ? comment.user.toString() : '';
-      const user = usersById.get(userId);
-      return {
-        _id: comment?._id,
-        text: comment?.text || '',
-        createdAt: comment?.createdAt || null,
-        user: user ? { _id: user._id, name: user.name, email: user.email } : null
-      };
-    });
+    const comments = hydrateComments(rawComments, usersById, req.user.id);
 
     res.json({
       comments,
@@ -454,12 +486,127 @@ exports.addComment = async (req, res) => {
         _id: latestComment._id,
         text: latestComment.text,
         createdAt: latestComment.createdAt,
-        user: user ? { _id: user._id, name: user.name, email: user.email } : null
+        user: user ? { _id: user._id, name: user.name, email: user.email } : null,
+        likesCount: 0,
+        isLiked: false,
+        replies: []
       },
       commentsCount: comments.length
     });
   } catch (error) {
     console.error('Add comment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
+   LIKE COMMENT
+========================= */
+exports.toggleCommentLike = async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    if (!isValidObjectId(id) || !isValidObjectId(commentId)) {
+      return res.status(400).json({ message: 'Invalid identifiers' });
+    }
+
+    const idea = await Idea.findById(id).select('visibility owner comments._id comments.likes');
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const isOwner = idea.owner?.toString() === req.user.id;
+    if (idea.visibility !== 'PUBLIC' && !isOwner) {
+      return res.status(403).json({ message: 'Not authorized to like this comment' });
+    }
+
+    const currentComment = idea.comments.find((comment) => comment._id.toString() === commentId);
+    if (!currentComment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const hasLiked = Array.isArray(currentComment.likes)
+      && currentComment.likes.map((like) => like.toString()).includes(req.user.id);
+
+    await Idea.updateOne(
+      { _id: id, 'comments._id': commentId },
+      hasLiked
+        ? { $pull: { 'comments.$.likes': req.user.id } }
+        : { $addToSet: { 'comments.$.likes': req.user.id } }
+    );
+
+    const refreshed = await Idea.findById(id).select('comments').lean();
+    const refreshedComments = Array.isArray(refreshed?.comments) ? refreshed.comments : [];
+    const updatedComment = refreshedComments.find((comment) => comment?._id?.toString() === commentId);
+    const likesCount = Array.isArray(updatedComment?.likes) ? updatedComment.likes.length : 0;
+
+    res.json({
+      liked: !hasLiked,
+      likesCount
+    });
+  } catch (error) {
+    console.error('Toggle comment like error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* =========================
+   REPLY TO COMMENT
+========================= */
+exports.replyToComment = async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const text = (req.body?.text || '').trim();
+    if (!text) {
+      return res.status(400).json({ message: 'Reply text is required' });
+    }
+    if (!isValidObjectId(id) || !isValidObjectId(commentId)) {
+      return res.status(400).json({ message: 'Invalid identifiers' });
+    }
+
+    const idea = await Idea.findById(id).select('visibility owner comments._id');
+    if (!idea) {
+      return res.status(404).json({ message: 'Idea not found' });
+    }
+
+    const isOwner = idea.owner?.toString() === req.user.id;
+    if (idea.visibility !== 'PUBLIC' && !isOwner) {
+      return res.status(403).json({ message: 'Not authorized to reply on this comment' });
+    }
+
+    const hasComment = idea.comments.some((comment) => comment._id.toString() === commentId);
+    if (!hasComment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
+
+    const createdAt = new Date();
+    const replyId = new mongoose.Types.ObjectId();
+    await Idea.updateOne(
+      { _id: id, 'comments._id': commentId },
+      {
+        $push: {
+          'comments.$.replies': {
+            _id: replyId,
+            user: req.user.id,
+            text,
+            createdAt
+          }
+        }
+      }
+    );
+
+    const user = await User.findById(req.user.id).select('name email').lean();
+    res.status(201).json({
+      reply: {
+        _id: replyId,
+        text,
+        createdAt,
+        user: user ? { _id: user._id, name: user.name, email: user.email } : null,
+        likesCount: 0,
+        isLiked: false
+      }
+    });
+  } catch (error) {
+    console.error('Reply comment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

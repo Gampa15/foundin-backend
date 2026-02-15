@@ -169,6 +169,37 @@ const ideaSchema = new mongoose.Schema(
           trim: true,
           maxlength: 400
         },
+        likes: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+          }
+        ],
+        replies: [
+          {
+            user: {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: 'User',
+              required: true
+            },
+            text: {
+              type: String,
+              required: true,
+              trim: true,
+              maxlength: 400
+            },
+            likes: [
+              {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+              }
+            ],
+            createdAt: {
+              type: Date,
+              default: Date.now
+            }
+          }
+        ],
         createdAt: {
           type: Date,
           default: Date.now
